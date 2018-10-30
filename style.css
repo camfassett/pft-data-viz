@@ -41,3 +41,14 @@
 .rects11 {
   fill: black;
 }
+
+.tooltip {
+  display: none;
+  position: absolute;
+  text-align: center;
+  width: 150px;
+  padding: 8px;
+  font: 15px sans-serif;
+  background: rgb(200,200,200);
+  pointer-events: none;
+}

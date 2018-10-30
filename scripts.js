@@ -1,8 +1,12 @@
 /* global d3*/
 
 //some global paramenters
-var rectSize = 25
-var padding = 5
+var rectSize = 15
+var paddingY = 5
+var paddingX = 20
+var width = 950
+var height = 500
+var aspect = width / height;
 var globalData = null
 
 
@@ -16,8 +20,17 @@ var mainContainer = d3.select(".container");
 var svgcanvas = mainContainer.append("svg");
 
 //start setting svg attributes
-svgcanvas.attr("width", "900")
-         .attr("height", "600");
+svgcanvas.attr("width", width)
+         .attr("height", height)
+         .attr("viewBox", `0 0 ${width} ${height}`)
+         .attr("preserveAspectRatio","xMidYMid meet");
+
+
+var tooltip = d3
+    .select("body")
+    .append("div")
+    .attr("class", "tooltip")
+    .style("display", "none")
 
 //fetching dataUrl and using d3.csv to parseCSV
 d3.csv(dataurl).then((data) => {
@@ -30,7 +43,8 @@ d3.csv(dataurl).then((data) => {
                             .data(groupData(filterData)) // groupData by month
                             .enter()
                             .append('g')
-                            .attr("transform", (element, index) => `translate(${index*(rectSize + padding) + padding},${300})`)
+                            .attr("transform", (element, index) => `translate(${index*(rectSize + paddingX) + paddingX},${0})`)
+
 
 
   var events = monthGroup.selectAll('.event')
@@ -39,18 +53,40 @@ d3.csv(dataurl).then((data) => {
   var rectangles = events.enter()
                          .append("rect")
                          .attr("class", "rects")
-                         .attr("class", (data, index) => {
-                           // console.log(data);
-                           return "rects" + (index+1)
+                         .attr("class", (entry, index) => {
+                           var cls = entry.categories[0]
+                                          .replace('/', '')
+                                          .split(' ')
+                                          .join('-')
+                                          .toLowerCase()
+                           return cls;
                          })
-                         .attr("x", 0)
+                         .attr("x", 0) // 0 because monthGroup is translated on X
                          .attr("y", (e, index) => {
-                           return index * rectSize
+                           return index * (rectSize + paddingY)
                          })
                          .attr("width", rectSize)
                          .attr("height", rectSize)
-                         .append("text")
+                         .on('click', d => { // assign on click event for every event
+                           window.open(d.slug, '_blank')
+                         })
+                         .on('mouseover', d => mouseover(d))
+                         .on('mousemove', d => mousemove(d))
+                         .on('mouseout', d => mouseout(d))
 
+function mouseover(d){
+  tooltip.style("display", "inline")
+}
+function mousemove(d) {
+  tooltip
+    .text(d.title)
+    .style("left", (d3.event.pageX) + "px")
+    .style("top", (d3.event.pageY) + "px");
+}
+
+function mouseout() {
+ tooltip.style("display", "none")
+}
   // var rectangles = monthGroup
   //                        .append("rect")
   //                        .attr("class", "rects")
@@ -75,10 +111,26 @@ d3.csv(dataurl).then((data) => {
 //uses timeFormat to create commong string and
 //d33.nest to group elements with common date string
 function groupData(data){
-  var timeFormat = d3.timeFormat("%m-%Y")
-  return d3.nest()
+  var timeFormat = d3.timeFormat("%m-%Y") //key based on date format month-year
+  return d3.nest() ///then we nest/group all nodes with equal month-year
+   .sortValues((a,b) => d3.descending(a.categories, b.categories))
    .key((ele) => timeFormat(ele.date))
    .entries(data)
+}
+
+function categories(data) {
+  // filtering all unique categories
+  const listCategories = [];
+  for(let el in data){
+    for(let cat in globalData[el].categories){
+        let cg = globalData[el].categories[cat]
+        cg = cg.trim()
+        if(!listCategories.includes(cg)){
+            listCategories.push(cg)
+        }
+    }
+  }
+  return listCategories;
 }
 
 function processData(data){
@@ -98,3 +150,15 @@ function processData(data){
   //return data sorting by the field element.date
   return data.sort((a,b) => a.date - b.date)
 };
+
+
+function d3resize() {
+  var container = d3.select('.container');
+  var targetWidth = parseInt(container.node().parentNode.clientWidth);
+  var targetHeight = parseInt(container.node().parentNode.clientHeight);
+
+  svgcanvas.attr('width', targetWidth);
+  svgcanvas.attr('height', Math.round(targetWidth / aspect));
+}
+window.addEventListener('resize', d3resize);
+d3resize()
